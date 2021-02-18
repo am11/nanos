@@ -136,7 +136,8 @@ struct vtpci_common_config {
 
 boolean vtpci_probe(pci_dev d, int virtio_dev_id)
 {
-    virtio_pci_debug("%s: vendor is 0x%x\n", __func__, pci_get_vendor(d));
+    virtio_pci_debug("%s: vendor is 0x%x, virtio_dev_id 0x%x\n", __func__,
+                     pci_get_vendor(d), virtio_dev_id);
     if (pci_get_vendor(d) != VIRTIO_PCI_VENDORID) {
         return false;
     }
@@ -148,6 +149,7 @@ boolean vtpci_probe(pci_dev d, int virtio_dev_id)
     }
 
     if (device >= VIRTIO_PCI_DEVICEID_MODERN_MIN) {
+        virtio_pci_debug("   device is modern\n");
         // modern device
         return device == VIRTIO_PCI_DEVICEID_MODERN_MIN + virtio_dev_id;
     }
@@ -331,19 +333,19 @@ vtpci attach_vtpci(heap h, backed_heap page_allocator, pci_dev d, u64 feature_ma
     assert(dev != INVALID_ADDRESS);
     vtdev virtio_dev = &dev->virtio_dev;
 
-    virtio_pci_debug("%s: dev %x\n", __func__, pci_get_device(d));
     boolean is_modern = pci_get_device(d) >= VIRTIO_PCI_DEVICEID_MODERN_MIN;
     if (is_modern)
         feature_mask |= VIRTIO_F_VERSION_1;
+    virtio_pci_debug("%s: dev %x%s\n", __func__, pci_get_device(d), is_modern ? "is modern" : "");
 
     dev->dev = d;
+    dev->msix_enabled = pci_enable_msix(dev->dev) > 0;
     if (feature_mask & VIRTIO_F_VERSION_1) {
         vtpci_modern_alloc_resources(dev);
     } else {
         vtpci_legacy_alloc_resources(dev);
     }
     pci_set_bus_master(dev->dev);
-    dev->msix_enabled = pci_enable_msix(dev->dev) > 0;
     pci_enable_io_and_memory(dev->dev);
 
     vtpci_set_status(dev, VIRTIO_CONFIG_STATUS_RESET);
